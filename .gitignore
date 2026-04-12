@@ -23,6 +23,7 @@ inventory/*.ini
 *.vault.yml
 *.vault.yaml
 !*vault.yml.example
+**/group_vars/*/vault.yml
 
 # SSH keys
 *.pem

@@ -1,0 +1,14 @@
+[Unit]
+Description=Apache HTTP Server (source build)
+After=network.target
+
+[Service]
+Type=forking
+PIDFile={{ httpd_install_dir }}/logs/httpd.pid
+ExecStart={{ httpd_install_dir }}/bin/apachectl start
+ExecStop={{ httpd_install_dir }}/bin/apachectl stop
+ExecReload={{ httpd_install_dir }}/bin/apachectl graceful
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

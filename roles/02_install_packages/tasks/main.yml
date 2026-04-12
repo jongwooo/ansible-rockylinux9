@@ -1,0 +1,11 @@
+---
+- name: Install common packages
+  ansible.builtin.dnf:
+    name: "{{ common_packages }}"
+    state: present
+
+- name: Install tier-specific packages
+  ansible.builtin.dnf:
+    name: "{{ tier_packages }}"
+    state: present
+  when: tier_packages is defined and tier_packages | length > 0

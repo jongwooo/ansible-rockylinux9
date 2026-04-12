@@ -1,0 +1,151 @@
+---
+- name: Create apache group
+  ansible.builtin.group:
+    name: "{{ httpd_group }}"
+    system: true
+    state: present
+
+- name: Create apache user
+  ansible.builtin.user:
+    name: "{{ httpd_user }}"
+    group: "{{ httpd_group }}"
+    home: "{{ httpd_install_dir }}"
+    shell: /bin/bash
+    system: true
+    create_home: false
+    password: "{{ vault_service_user_password | password_hash('sha512', 'svcusr2026') }}"
+    update_password: on_create
+    state: present
+
+- name: Download httpd source
+  ansible.builtin.get_url:
+    url: "{{ httpd_src_url }}"
+    dest: "{{ httpd_build_dir }}/httpd-{{ httpd_version }}.tar.gz"
+    mode: "0644"
+
+- name: Extract httpd source
+  ansible.builtin.unarchive:
+    src: "{{ httpd_build_dir }}/httpd-{{ httpd_version }}.tar.gz"
+    dest: "{{ httpd_build_dir }}"
+    remote_src: true
+    creates: "{{ httpd_build_dir }}/httpd-{{ httpd_version }}/configure"
+
+- name: Configure httpd build
+  ansible.builtin.command:
+    cmd: >
+      ./configure
+      --prefix={{ httpd_install_dir }}
+      --with-apr=/usr
+      --with-apr-util=/usr
+      --with-pcre2
+      --enable-ssl
+      --enable-so
+      --enable-rewrite
+    chdir: "{{ httpd_build_dir }}/httpd-{{ httpd_version }}"
+    creates: "{{ httpd_build_dir }}/httpd-{{ httpd_version }}/build/config_vars.mk"
+
+- name: Build and install httpd
+  ansible.builtin.shell:
+    cmd: make && make install
+    chdir: "{{ httpd_build_dir }}/httpd-{{ httpd_version }}"
+    creates: "{{ httpd_install_dir }}/bin/httpd"
+
+- name: Download tomcat-connectors (mod_jk) source
+  ansible.builtin.get_url:
+    url: "{{ modjk_src_url }}"
+    dest: "{{ httpd_build_dir }}/tomcat-connectors-{{ modjk_version }}-src.tar.gz"
+    mode: "0644"
+
+- name: Extract tomcat-connectors source
+  ansible.builtin.unarchive:
+    src: "{{ httpd_build_dir }}/tomcat-connectors-{{ modjk_version }}-src.tar.gz"
+    dest: "{{ httpd_build_dir }}"
+    remote_src: true
+    creates: "{{ httpd_build_dir }}/tomcat-connectors-{{ modjk_version }}-src/native/configure"
+
+- name: Configure mod_jk build
+  ansible.builtin.command:
+    cmd: >
+      ./configure
+      --with-apxs={{ httpd_install_dir }}/bin/apxs
+    chdir: "{{ httpd_build_dir }}/tomcat-connectors-{{ modjk_version }}-src/native"
+    creates: "{{ httpd_build_dir }}/tomcat-connectors-{{ modjk_version }}-src/native/Makefile"
+
+- name: Build and install mod_jk
+  ansible.builtin.shell:
+    cmd: make && make install
+    chdir: "{{ httpd_build_dir }}/tomcat-connectors-{{ modjk_version }}-src/native"
+    creates: "{{ httpd_install_dir }}/modules/mod_jk.so"
+
+- name: Create SSL certificate directory
+  ansible.builtin.file:
+    path: "{{ httpd_ssl_cert_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Generate self-signed SSL private key
+  ansible.builtin.command:
+    cmd: openssl genrsa -out {{ httpd_ssl_key }} 2048
+    creates: "{{ httpd_ssl_key }}"
+
+- name: Generate self-signed SSL certificate
+  ansible.builtin.command:
+    cmd: >
+      openssl req -new -x509
+      -key {{ httpd_ssl_key }}
+      -out {{ httpd_ssl_cert }}
+      -days 365
+      -subj "/C={{ httpd_ssl_country }}/O={{ httpd_ssl_org }}/CN={{ httpd_ssl_cn }}"
+    creates: "{{ httpd_ssl_cert }}"
+
+- name: Set permissions on SSL private key
+  ansible.builtin.file:
+    path: "{{ httpd_ssl_key }}"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Deploy httpd.conf
+  ansible.builtin.template:
+    src: httpd.conf.j2
+    dest: "{{ httpd_install_dir }}/conf/httpd.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart httpd
+
+- name: Deploy workers.properties
+  ansible.builtin.template:
+    src: workers.properties.j2
+    dest: "{{ modjk_workers_properties }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart httpd
+
+- name: Deploy SSL configuration
+  ansible.builtin.template:
+    src: httpd-ssl.conf.j2
+    dest: "{{ httpd_install_dir }}/conf/extra/httpd-ssl.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart httpd
+
+- name: Install httpd systemd unit file
+  ansible.builtin.template:
+    src: httpd.service.j2
+    dest: /etc/systemd/system/httpd.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart httpd
+
+- name: Enable and start httpd
+  ansible.builtin.systemd:
+    name: httpd
+    state: started
+    enabled: true
+    daemon_reload: true

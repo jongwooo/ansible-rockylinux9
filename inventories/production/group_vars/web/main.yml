@@ -1,0 +1,19 @@
+tier_packages:
+  - gcc
+  - make
+  - pcre2-devel
+  - expat-devel
+  - openssl-devel
+  - zlib-devel
+  - apr-devel
+  - apr-util-devel
+
+iptables_rules:
+  - port: 80
+    comment: "Allow HTTP (httpd)"
+  - port: 443
+    comment: "Allow HTTPS (httpd)"
+  - port: 8080
+    comment: "Allow HTTP (nginx)"
+  - port: 8443
+    comment: "Allow HTTPS (nginx)"

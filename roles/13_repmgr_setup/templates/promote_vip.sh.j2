@@ -1,0 +1,10 @@
+#!/bin/bash
+# Assign VIP after repmgr promote
+
+VIP="{{ repmgr_vip }}/{{ repmgr_vip_cidr }}"
+IFACE="{{ repmgr_vip_iface }}"
+
+sudo /usr/sbin/ip addr add ${VIP} dev ${IFACE} 2>/dev/null
+sudo /usr/sbin/arping -U -c 3 -I ${IFACE} {{ repmgr_vip }} &>/dev/null &
+
+logger -t repmgr-vip "VIP ${VIP} assigned to ${IFACE}"

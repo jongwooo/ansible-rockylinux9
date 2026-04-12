@@ -1,0 +1,46 @@
+---
+- name: Common setup for all VMs
+  hosts: all
+  become: true
+  roles:
+    - 00_hosts_setup
+    - 01_dnf_upgrade
+    - 02_install_packages
+    - 03_selinux_disable
+    - 04_firewalld_disable
+    - 05_iptables_setup
+    - 06_ntp_setup
+    - 07_swap_config
+    - 08_ssh_hardening
+
+- name: Apache HTTPD setup for WEB VMs
+  hosts: web
+  become: true
+  roles:
+    - 09_httpd_install
+
+- name: Nginx setup for WEB VMs
+  hosts: web
+  become: true
+  roles:
+    - 10_nginx_install
+
+- name: Tomcat setup for WAS VMs
+  hosts: was
+  become: true
+  roles:
+    - 11_tomcat_install
+
+- name: PostgreSQL setup for DB VMs
+  hosts: db
+  become: true
+  roles:
+    - 12_postgresql_install
+
+- name: Repmgr setup for DB VMs
+  hosts: db
+  become: true
+  serial: 1
+  order: sorted
+  roles:
+    - 13_repmgr_setup

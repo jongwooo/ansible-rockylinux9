@@ -1,0 +1,106 @@
+---
+- name: Configure wal_level for replication
+  ansible.builtin.lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    regexp: "^#?wal_level"
+    line: "wal_level = replica"
+  notify: Restart postgresql
+
+- name: Configure max_wal_senders
+  ansible.builtin.lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    regexp: "^#?max_wal_senders"
+    line: "max_wal_senders = 10"
+  notify: Restart postgresql
+
+- name: Configure max_replication_slots
+  ansible.builtin.lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    regexp: "^#?max_replication_slots"
+    line: "max_replication_slots = 10"
+  notify: Restart postgresql
+
+- name: Configure wal_keep_size
+  ansible.builtin.lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    regexp: "^#?wal_keep_size"
+    line: "wal_keep_size = 256MB"
+  notify: Restart postgresql
+
+- name: Configure hot_standby
+  ansible.builtin.lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    regexp: "^#?hot_standby"
+    line: "hot_standby = on"
+  notify: Restart postgresql
+
+- name: Configure shared_preload_libraries for repmgr
+  ansible.builtin.lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    regexp: "^#?shared_preload_libraries"
+    line: "shared_preload_libraries = 'repmgr'"
+  notify: Restart postgresql
+
+- name: Allow replication connections in pg_hba.conf
+  ansible.builtin.lineinfile:
+    path: "{{ postgresql_data_dir }}/pg_hba.conf"
+    regexp: "^host\\s+replication\\s+{{ repmgr_user }}"
+    line: "host    replication    {{ repmgr_user }}    {{ postgresql_allowed_network }}    scram-sha-256"
+  notify: Restart postgresql
+
+- name: Allow repmgr database connections in pg_hba.conf
+  ansible.builtin.lineinfile:
+    path: "{{ postgresql_data_dir }}/pg_hba.conf"
+    regexp: "^host\\s+{{ repmgr_db }}\\s+{{ repmgr_user }}"
+    line: "host    {{ repmgr_db }}    {{ repmgr_user }}    {{ postgresql_allowed_network }}    scram-sha-256"
+  notify: Restart postgresql
+
+- name: Flush handlers to apply config changes
+  ansible.builtin.meta: flush_handlers
+
+- name: Create repmgr user
+  ansible.builtin.command: >
+    /usr/pgsql-{{ postgresql_version }}/bin/psql -c
+    "DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ repmgr_user }}') THEN
+        CREATE ROLE {{ repmgr_user }} WITH SUPERUSER LOGIN PASSWORD '{{ repmgr_password }}';
+      END IF;
+    END $$;"
+  become_user: postgres
+  changed_when: false
+
+- name: Create repmgr database
+  ansible.builtin.command: >
+    /usr/pgsql-{{ postgresql_version }}/bin/psql -tc
+    "SELECT 1 FROM pg_database WHERE datname = '{{ repmgr_db }}'"
+  become_user: postgres
+  register: repmgr_db_check
+  changed_when: false
+
+- name: Create repmgr database if not exists
+  ansible.builtin.command: >
+    /usr/pgsql-{{ postgresql_version }}/bin/psql -c
+    "CREATE DATABASE {{ repmgr_db }} OWNER {{ repmgr_user }};"
+  become_user: postgres
+  when: repmgr_db_check.stdout.find('1') == -1
+
+- name: Assign VIP to primary node
+  ansible.builtin.command: /etc/repmgr/{{ postgresql_version }}/promote_vip.sh
+  changed_when: false
+
+- name: Register primary node
+  ansible.builtin.command: >
+    /usr/pgsql-{{ postgresql_version }}/bin/repmgr
+    -f /etc/repmgr/{{ postgresql_version }}/repmgr.conf
+    primary register --force
+  become_user: postgres
+  environment:
+    PGPASSWORD: "{{ repmgr_password }}"
+  changed_when: false
+
+- name: Enable and start repmgrd service
+  ansible.builtin.systemd:
+    name: repmgr-{{ postgresql_version }}
+    state: started
+    enabled: true

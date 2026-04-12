@@ -1,0 +1,37 @@
+---
+# Build versions
+httpd_version: 2.4.62
+
+# Source URLs
+httpd_src_url: "https://archive.apache.org/dist/httpd/httpd-{{ httpd_version }}.tar.gz"
+
+# Install paths
+httpd_build_dir: /usr/local/src
+httpd_install_dir: /usr/local/apache2
+httpd_user: apache
+httpd_group: apache
+
+# Ports
+httpd_http_port: 80
+httpd_https_port: 443
+
+# SSL
+httpd_ssl_cert_dir: "{{ httpd_install_dir }}/conf/ssl"
+httpd_ssl_cert: "{{ httpd_ssl_cert_dir }}/httpd-selfsigned.crt"
+httpd_ssl_key: "{{ httpd_ssl_cert_dir }}/httpd-selfsigned.key"
+httpd_ssl_country: KR
+httpd_ssl_org: ShoppingMall
+httpd_ssl_cn: "{{ ansible_host }}"
+
+# mod_jk (tomcat-connectors)
+modjk_version: 1.2.50
+modjk_src_url: "https://archive.apache.org/dist/tomcat/tomcat-connectors/jk/tomcat-connectors-{{ modjk_version }}-src.tar.gz"
+modjk_workers_properties: "{{ httpd_install_dir }}/conf/workers.properties"
+modjk_log_dir: "{{ httpd_install_dir }}/logs"
+
+# AJP backends
+httpd_backend_servers:
+  - host: 10.220.100.21
+    port: 8009
+  - host: 10.220.100.22
+    port: 8009

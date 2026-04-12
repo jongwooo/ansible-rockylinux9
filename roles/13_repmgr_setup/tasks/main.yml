@@ -1,0 +1,79 @@
+---
+- name: Install repmgr package
+  ansible.builtin.package:
+    name: repmgr_{{ postgresql_version }}
+    state: present
+
+- name: Create repmgr log directory
+  ansible.builtin.file:
+    path: /var/log/repmgr
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0755"
+
+- name: Deploy repmgr.conf
+  ansible.builtin.template:
+    src: repmgr.conf.j2
+    dest: /etc/repmgr/{{ postgresql_version }}/repmgr.conf
+    owner: postgres
+    group: postgres
+    mode: "0644"
+
+- name: Configure .pgpass for postgres user
+  ansible.builtin.copy:
+    dest: /var/lib/pgsql/.pgpass
+    content: |
+      *:{{ postgresql_port }}:{{ repmgr_db }}:{{ repmgr_user }}:{{ repmgr_password }}
+      *:{{ postgresql_port }}:replication:{{ repmgr_user }}:{{ repmgr_password }}
+    owner: postgres
+    group: postgres
+    mode: "0600"
+
+- name: Allow postgres user sudo for repmgr operations
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/postgres_repmgr
+    content: |
+      postgres ALL=(root) NOPASSWD: /usr/sbin/ip addr add *
+      postgres ALL=(root) NOPASSWD: /usr/sbin/ip addr del *
+      postgres ALL=(root) NOPASSWD: /usr/sbin/arping *
+      postgres ALL=(root) NOPASSWD: /usr/bin/systemctl start {{ postgresql_service }}
+      postgres ALL=(root) NOPASSWD: /usr/bin/systemctl stop {{ postgresql_service }}
+      postgres ALL=(root) NOPASSWD: /usr/bin/systemctl restart {{ postgresql_service }}
+      postgres ALL=(root) NOPASSWD: /usr/bin/systemctl reload {{ postgresql_service }}
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Deploy VIP promote script
+  ansible.builtin.template:
+    src: promote_vip.sh.j2
+    dest: /etc/repmgr/{{ postgresql_version }}/promote_vip.sh
+    owner: postgres
+    group: postgres
+    mode: "0755"
+
+- name: Deploy failback script
+  ansible.builtin.template:
+    src: failback.sh.j2
+    dest: /etc/repmgr/{{ postgresql_version }}/failback.sh
+    owner: postgres
+    group: postgres
+    mode: "0755"
+
+- name: Deploy VIP follow script
+  ansible.builtin.template:
+    src: follow_vip.sh.j2
+    dest: /etc/repmgr/{{ postgresql_version }}/follow_vip.sh
+    owner: postgres
+    group: postgres
+    mode: "0755"
+
+- name: Setup primary node
+  ansible.builtin.include_tasks: primary.yml
+  when: repmgr_node_id | int == 1
+
+- name: Setup standby node
+  ansible.builtin.include_tasks: standby.yml
+  when: repmgr_node_id | int != 1

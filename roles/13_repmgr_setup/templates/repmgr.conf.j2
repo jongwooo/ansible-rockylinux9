@@ -1,0 +1,23 @@
+node_id={{ repmgr_node_id }}
+node_name='{{ repmgr_node_name }}'
+conninfo='host={{ ansible_host }} user={{ repmgr_user }} dbname={{ repmgr_db }} port={{ postgresql_port }} connect_timeout=2'
+data_directory='{{ postgresql_data_dir }}'
+pg_bindir='/usr/pgsql-{{ postgresql_version }}/bin'
+
+service_start_command='sudo systemctl start {{ postgresql_service }}'
+service_stop_command='sudo systemctl stop {{ postgresql_service }}'
+service_restart_command='sudo systemctl restart {{ postgresql_service }}'
+service_reload_command='sudo systemctl reload {{ postgresql_service }}'
+pg_basebackup_options='--waldir={{ postgresql_wal_dir }}'
+
+failover=automatic
+monitor_interval_secs=5
+reconnect_attempts=3
+reconnect_interval=5
+promote_command='/usr/pgsql-{{ postgresql_version }}/bin/repmgr standby promote -f /etc/repmgr/{{ postgresql_version }}/repmgr.conf --log-to-file && /etc/repmgr/{{ postgresql_version }}/promote_vip.sh'
+follow_command='/etc/repmgr/{{ postgresql_version }}/follow_vip.sh && /usr/pgsql-{{ postgresql_version }}/bin/repmgr standby follow -f /etc/repmgr/{{ postgresql_version }}/repmgr.conf --log-to-file --upstream-node-id=%n'
+
+ssh_options='-l postgres -p 11122 -o StrictHostKeyChecking=no'
+
+log_file='/var/log/repmgr/repmgr.log'
+log_level=INFO

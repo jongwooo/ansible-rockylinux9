@@ -1,0 +1,21 @@
+---
+postgresql_version: 18
+postgresql_data_dir: /data/pgsql/{{ postgresql_version }}/data
+postgresql_wal_dir: /wal/pgsql/{{ postgresql_version }}/pg_wal
+postgresql_service: postgresql-{{ postgresql_version }}
+postgresql_port: 5432
+postgresql_allowed_network: 10.220.100.0/24
+
+repmgr_user: repmgr
+repmgr_db: repmgr
+repmgr_password: "{{ vault_service_user_password }}"
+
+repmgr_vip: 10.220.100.30
+repmgr_vip_cidr: 24
+repmgr_vip_iface: enp0s2
+repmgr_primary_host: 10.220.100.31
+repmgr_node_id: "{{ repmgr_node_ids[inventory_hostname] }}"
+repmgr_node_name: "{{ inventory_hostname }}"
+repmgr_node_ids:
+  db01: 1
+  db02: 2

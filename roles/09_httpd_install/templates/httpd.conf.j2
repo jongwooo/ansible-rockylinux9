@@ -1,0 +1,38 @@
+ServerRoot "{{ httpd_install_dir }}"
+
+Listen {{ ansible_host }}:{{ httpd_http_port }}
+
+LoadModule authz_core_module modules/mod_authz_core.so
+LoadModule mime_module modules/mod_mime.so
+LoadModule log_config_module modules/mod_log_config.so
+LoadModule headers_module modules/mod_headers.so
+LoadModule unixd_module modules/mod_unixd.so
+LoadModule rewrite_module modules/mod_rewrite.so
+LoadModule ssl_module modules/mod_ssl.so
+LoadModule jk_module modules/mod_jk.so
+LoadModule socache_shmcb_module modules/mod_socache_shmcb.so
+
+JkWorkersFile {{ modjk_workers_properties }}
+JkLogFile {{ modjk_log_dir }}/mod_jk.log
+JkLogLevel info
+
+User {{ httpd_user }}
+Group {{ httpd_group }}
+
+ServerName {{ ansible_host }}:{{ httpd_http_port }}
+
+ErrorLog "logs/error_log"
+LogLevel warn
+LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" \"%{X-Forwarded-For}i\"" main
+CustomLog "logs/access_log" main
+
+TypesConfig conf/mime.types
+
+<VirtualHost {{ ansible_host }}:{{ httpd_http_port }}>
+    ServerName {{ ansible_host }}
+    RewriteEngine On
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</VirtualHost>
+
+Include conf/extra/httpd-ssl.conf

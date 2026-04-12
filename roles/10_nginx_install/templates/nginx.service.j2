@@ -1,0 +1,14 @@
+[Unit]
+Description=Nginx HTTP Server (source build)
+After=network.target
+
+[Service]
+Type=forking
+PIDFile={{ nginx_install_dir }}/logs/nginx.pid
+ExecStart={{ nginx_install_dir }}/sbin/nginx
+ExecStop={{ nginx_install_dir }}/sbin/nginx -s stop
+ExecReload={{ nginx_install_dir }}/sbin/nginx -s reload
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

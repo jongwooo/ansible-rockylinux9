@@ -1,0 +1,4 @@
+iptables_rules:
+  - port: 5432
+    source: 10.220.100.0/24
+    comment: "Allow PostgreSQL from internal network"

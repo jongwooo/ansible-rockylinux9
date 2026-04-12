@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Context>
+    <WatchedResource>WEB-INF/web.xml</WatchedResource>
+    <WatchedResource>WEB-INF/tomcat-web.xml</WatchedResource>
+    <WatchedResource>${catalina.base}/conf/web.xml</WatchedResource>
+
+    <Resource name="{{ tomcat_ds_name }}"
+              auth="Container"
+              type="javax.sql.DataSource"
+              driverClassName="{{ tomcat_ds_driver }}"
+              url="{{ tomcat_ds_url }}"
+              username="{{ tomcat_ds_username }}"
+              password="{{ tomcat_ds_password }}"
+              maxTotal="{{ tomcat_ds_max_total }}"
+              maxIdle="{{ tomcat_ds_max_idle }}"
+              minIdle="{{ tomcat_ds_min_idle }}" />
+</Context>

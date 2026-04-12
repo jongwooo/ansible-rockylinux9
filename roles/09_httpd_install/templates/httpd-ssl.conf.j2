@@ -1,0 +1,17 @@
+Listen {{ ansible_host }}:{{ httpd_https_port }}
+
+SSLCipherSuite HIGH:!aNULL:!MD5
+SSLHonorCipherOrder on
+SSLProtocol all -SSLv3 -TLSv1 -TLSv1.1
+SSLSessionCache "shmcb:{{ httpd_install_dir }}/logs/ssl_scache(512000)"
+SSLSessionCacheTimeout 300
+
+<VirtualHost {{ ansible_host }}:{{ httpd_https_port }}>
+    ServerName {{ ansible_host }}
+
+    SSLEngine on
+    SSLCertificateFile {{ httpd_ssl_cert }}
+    SSLCertificateKeyFile {{ httpd_ssl_key }}
+
+    JkMount /* loadbalancer
+</VirtualHost>

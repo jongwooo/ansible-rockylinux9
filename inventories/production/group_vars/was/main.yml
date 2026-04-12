@@ -1,0 +1,11 @@
+tier_packages:
+  - java-21-openjdk
+  - java-21-openjdk-devel
+
+iptables_rules:
+  - port: 8009
+    source: 10.220.100.11
+    comment: "Allow AJP from web01"
+  - port: 8080
+    source: 10.220.100.11
+    comment: "Allow Tomcat HTTP from web01 (nginx)"

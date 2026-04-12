@@ -1,0 +1,31 @@
+---
+# Build version
+nginx_version: 1.26.3
+
+# Source URL
+nginx_src_url: "https://nginx.org/download/nginx-{{ nginx_version }}.tar.gz"
+
+# Install paths
+nginx_build_dir: /usr/local/src
+nginx_install_dir: /usr/local/nginx
+nginx_user: nginx
+nginx_group: nginx
+
+# Ports
+nginx_http_port: 8080
+nginx_https_port: 8443
+
+# SSL
+nginx_ssl_cert_dir: "{{ nginx_install_dir }}/conf/ssl"
+nginx_ssl_cert: "{{ nginx_ssl_cert_dir }}/nginx-selfsigned.crt"
+nginx_ssl_key: "{{ nginx_ssl_cert_dir }}/nginx-selfsigned.key"
+nginx_ssl_country: KR
+nginx_ssl_org: ShoppingMall
+nginx_ssl_cn: "{{ ansible_host }}"
+
+# Reverse proxy backends
+nginx_backend_servers:
+  - host: 10.220.100.21
+    port: 8080
+  - host: 10.220.100.22
+    port: 8080

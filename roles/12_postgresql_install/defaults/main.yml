@@ -1,0 +1,8 @@
+---
+postgresql_version: 18
+postgresql_data_dir: /data/pgsql/{{ postgresql_version }}/data
+postgresql_wal_dir: /wal/pgsql/{{ postgresql_version }}/pg_wal
+postgresql_service: postgresql-{{ postgresql_version }}
+postgresql_listen_addresses: "*"
+postgresql_port: 5432
+postgresql_allowed_network: 10.220.100.0/24

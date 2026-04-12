@@ -1,0 +1,12 @@
+worker.list=loadbalancer
+
+{% for server in httpd_backend_servers %}
+worker.{{ hostvars[groups['was'][loop.index0]]['inventory_hostname'] }}.type=ajp13
+worker.{{ hostvars[groups['was'][loop.index0]]['inventory_hostname'] }}.host={{ server.host }}
+worker.{{ hostvars[groups['was'][loop.index0]]['inventory_hostname'] }}.port={{ server.port }}
+
+{% endfor %}
+worker.loadbalancer.type=lb
+worker.loadbalancer.balance_workers={% for host in groups['was'] %}{{ host }}{% if not loop.last %},{% endif %}{% endfor %}
+
+worker.loadbalancer.sticky_session=true

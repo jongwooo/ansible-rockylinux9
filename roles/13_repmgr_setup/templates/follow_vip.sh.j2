@@ -1,0 +1,9 @@
+#!/bin/bash
+# Release VIP when following new primary
+
+VIP="{{ repmgr_vip }}/{{ repmgr_vip_cidr }}"
+IFACE="{{ repmgr_vip_iface }}"
+
+sudo /usr/sbin/ip addr del ${VIP} dev ${IFACE} 2>/dev/null
+
+logger -t repmgr-vip "VIP ${VIP} released from ${IFACE}"

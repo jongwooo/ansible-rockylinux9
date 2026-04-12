@@ -1,0 +1,5 @@
+---
+iptables_host_rules:
+  - port: 4000
+    source: 10.220.100.21
+    comment: "Allow cluster from was01"

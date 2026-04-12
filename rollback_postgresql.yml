@@ -1,0 +1,75 @@
+---
+- name: Rollback PostgreSQL and repmgr on DB VMs
+  hosts: db
+  become: true
+  vars:
+    postgresql_version: 18
+    postgresql_service: postgresql-{{ postgresql_version }}
+  tasks:
+    - name: Stop repmgrd service
+      ansible.builtin.systemd:
+        name: repmgr-{{ postgresql_version }}
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Stop PostgreSQL service
+      ansible.builtin.systemd:
+        name: "{{ postgresql_service }}"
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Remove repmgr package
+      ansible.builtin.package:
+        name: repmgr_{{ postgresql_version }}
+        state: absent
+
+    - name: Remove PostgreSQL server package
+      ansible.builtin.package:
+        name: postgresql{{ postgresql_version }}-server
+        state: absent
+
+    - name: Remove PostgreSQL client package
+      ansible.builtin.package:
+        name: postgresql{{ postgresql_version }}
+        state: absent
+
+    - name: Remove PGDG repository package
+      ansible.builtin.package:
+        name: pgdg-redhat-repo
+        state: absent
+
+    - name: Remove default data directory
+      ansible.builtin.file:
+        path: /var/lib/pgsql
+        state: absent
+
+    - name: Remove custom data directory
+      ansible.builtin.file:
+        path: /data/pgsql
+        state: absent
+
+    - name: Remove custom WAL directory
+      ansible.builtin.file:
+        path: /wal/pgsql
+        state: absent
+
+    - name: Remove systemd override directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/{{ postgresql_service }}.service.d
+        state: absent
+
+    - name: Remove repmgr config
+      ansible.builtin.file:
+        path: /etc/repmgr
+        state: absent
+
+    - name: Remove repmgr log directory
+      ansible.builtin.file:
+        path: /var/log/repmgr
+        state: absent
+
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: true

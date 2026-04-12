@@ -1,0 +1,72 @@
+#!/bin/bash
+# Failback script: rejoin this node as standby, then switchover to become primary
+# Usage: sudo -u postgres /etc/repmgr/{{ postgresql_version }}/failback.sh <current_primary_ip>
+# Example: sudo -u postgres /etc/repmgr/{{ postgresql_version }}/failback.sh 10.220.100.32
+
+set -euo pipefail
+
+REPMGR_BIN="/usr/pgsql-{{ postgresql_version }}/bin/repmgr"
+REPMGR_CONF="/etc/repmgr/{{ postgresql_version }}/repmgr.conf"
+PG_SERVICE="{{ postgresql_service }}"
+SSH_PORT=11122
+
+CURRENT_PRIMARY_IP="${1:-}"
+
+if [ -z "${CURRENT_PRIMARY_IP}" ]; then
+    echo "ERROR: current primary IP required"
+    echo "Usage: $0 <current_primary_ip>"
+    exit 1
+fi
+
+echo "=== Step 1: Stop PostgreSQL ==="
+sudo systemctl stop "${PG_SERVICE}" 2>/dev/null || true
+
+echo "=== Step 2: Clean data and WAL directories ==="
+rm -rf {{ postgresql_data_dir }}/*
+rm -rf {{ postgresql_wal_dir }}/*
+
+echo "=== Step 3: Clone from current primary (${CURRENT_PRIMARY_IP}) ==="
+${REPMGR_BIN} \
+    -h "${CURRENT_PRIMARY_IP}" \
+    -U {{ repmgr_user }} \
+    -d {{ repmgr_db }} \
+    -f "${REPMGR_CONF}" \
+    standby clone --force
+
+echo "=== Step 4: Start PostgreSQL ==="
+sudo systemctl start "${PG_SERVICE}"
+
+echo "=== Step 5: Register as standby ==="
+sleep 3
+${REPMGR_BIN} -f "${REPMGR_CONF}" standby register --force
+
+echo "=== Step 6: Verify cluster state ==="
+${REPMGR_BIN} -f "${REPMGR_CONF}" cluster show
+
+echo ""
+read -rp "Proceed with switchover to make this node primary? [y/N] " answer
+if [[ "${answer}" != "y" && "${answer}" != "Y" ]]; then
+    echo "Stopped. This node is running as standby."
+    exit 0
+fi
+
+echo "=== Step 7: Switchover ==="
+${REPMGR_BIN} -f "${REPMGR_CONF}" standby switchover --siblings-follow
+
+echo "=== Step 8: Migrate VIP ==="
+VIP="{{ repmgr_vip }}/{{ repmgr_vip_cidr }}"
+IFACE="{{ repmgr_vip_iface }}"
+
+# Remove VIP from old primary (db02) via SSH
+ssh -p ${SSH_PORT} -o StrictHostKeyChecking=no postgres@"${CURRENT_PRIMARY_IP}" \
+    "sudo /usr/sbin/ip addr del ${VIP} dev ${IFACE} 2>/dev/null; logger -t repmgr-vip 'VIP ${VIP} released from ${IFACE} (switchover)'" || true
+
+# Assign VIP to this node (new primary)
+sudo /usr/sbin/ip addr add ${VIP} dev ${IFACE} 2>/dev/null || true
+sudo /usr/sbin/arping -U -c 3 -I ${IFACE} {{ repmgr_vip }} &>/dev/null &
+logger -t repmgr-vip "VIP ${VIP} assigned to ${IFACE} (switchover)"
+
+echo "=== Step 9: Final cluster state ==="
+${REPMGR_BIN} -f "${REPMGR_CONF}" cluster show
+
+echo "=== Failback complete ==="
